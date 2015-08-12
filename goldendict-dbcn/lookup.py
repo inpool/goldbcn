@@ -4,8 +4,8 @@
 import os
 
 DIR_PATH = os.path.dirname(__file__) 
-DB_PATH = os.path.join(DIR_PATH, 'dict_db.sqlite3')
-TEMPLATE_TXT = os.path.join(DIR_PATH, 'template.txt')
+DB_PATH = os.path.join(os.environ['HOME'], '.goldendict', 'dbcn', 'dict.db')
+TEMPLATE_TXT = os.path.join(DIR_PATH, '../res/template.txt')
 
 def lookup(word):
     word = word.strip()
@@ -24,9 +24,8 @@ def lookup(word):
     try:
         result = lookup_from_net(word)
     except LookupNetException:
-        return None
-    finally:
         db.close()
+        return None
     save_into_db(db, result)
     return result
 
