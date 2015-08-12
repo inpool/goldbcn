@@ -82,7 +82,7 @@ def save_into_db(db, result):
     return
 
 def to_txt(result):
-    ERROR_MSG = u'单词未找到！'
+    ERROR_MSG = '单词未找到！'
     if not result:
         return ERROR_MSG
     template = open(TEMPLATE_TXT).read()
