@@ -1,5 +1,5 @@
-#! /usr/bin/env python
-#-*- coding: utf8 -*-
+#! /usr/bin/env python2
+#-*- coding: utf-8 -*-
 
 import os
 
@@ -70,15 +70,37 @@ def result_from_html(s):
         sound = ' '.join(re.split(r'\s+', sound))
     else:
         sound = ''
-    means = '\n'.join(i.text for i in means)
+    means = [i.text for i in means]
+    while None in means:
+        means.remove(None)
+    means = '\n'.join(means).strip()
 
     return keyword.encode('utf8'), sound.encode('utf8'), means.encode('utf8')
 
 def lookup_from_db(db, word):
-    pass
+    word = word.lower()
+    table_name = get_table_name(word)
+    sql = 'SELECT keyword, sound, mean FROM %s where word=?' % table_name
+    result = db.execute(sql, (word,)).fetchone()
+    if result:
+        return tuple(i.encode('utf-8') for i in result)
 
 def save_into_db(db, result):
-    return
+    word, sound, mean = [i.decode('utf-8') for i in result]
+    if not mean:
+        return
+    word = word.lower()
+    table_name = get_table_name(word)
+    sql = 'SELECT 1 FROM %s WHERE word=?' % table_name
+    if db.execute(sql, (word, )).fetchone():
+        return
+    sql = 'INSERT INTO %s (word, keyword, sound, mean) VALUES (?, ?, ?, ?)'
+    db.execute(sql % table_name, (word.lower(), word, sound, mean))
+    db.commit()
+
+def get_table_name(word):
+    word = word.lower()
+    return 'word_%s' % (word[0] + word[-1])
 
 def to_txt(result):
     ERROR_MSG = '单词未找到！'
