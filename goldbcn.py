@@ -1,14 +1,19 @@
-#! /usr/bin/env python2
 #-*- coding: utf-8 -*-
 
 import os
 
-f = __file__
-while os.path.islink(f):
-    f = os.readlink(f)
-DIR_PATH = os.path.dirname(f) 
-DB_PATH = os.path.join(os.environ['HOME'], '.goldendict', 'dbcn', 'dict.db')
-TEMPLATE_TXT = os.path.join(DIR_PATH, '../res/template.txt')
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+DB_PATH = os.path.expanduser('~/.goldendict/dbcn/dict.db')
+TEMPLATE_TXT = os.path.join(DIR_PATH, 'res/template.txt')
+
+
+def get_db():
+    if hasattr(get_db, 'db'):
+        return get_db.db
+    import sqlite3
+    db = sqlite3.connect(DB_PATH)
+    get_db.db = db
+    return db
 
 def lookup(word):
     word = word.strip()
@@ -19,23 +24,36 @@ def lookup(word):
             return None
         return result
 
-    import sqlite3
-    db = sqlite3.connect(DB_PATH)
-    result = lookup_from_db(db, word)
+    result = lookup_from_db(word)
     if result:
         return result
     try:
-        result = lookup_from_net(word)
+        html = response_from_net(word)
     except LookupNetException:
         db.close()
         return None
-    save_into_db(db, result)
+    result = result_from_html(html)
+    save_into_db(result)
     return result
 
 def lookup_sentence(word):
-    return lookup_from_net(word)
+    try:
+        html = response_from_net(word)
+    except LookupNetException:
+        return None
+    return result_from_html(html)
 
-def lookup_from_net(word):
+def lookup_from_db(word):
+    db = get_db()
+    cursor = db.cursor()
+    word = word.lower()
+    table_name = get_table_name(word)
+    sql = 'SELECT keyword, sound, mean FROM %s where word=?' % table_name
+    result = cursor.execute(sql, (word,)).fetchone()
+    if result:
+        return tuple(i.encode('utf-8') for i in result)
+
+def response_from_net(word):
     word = quote_item(word)
     lookup_url = 'http://dict.youdao.com/search?q=' + word
     import urllib2
@@ -43,7 +61,7 @@ def lookup_from_net(word):
         html = urllib2.urlopen(lookup_url).read()
     except urllib2.HTTPError as e:
         raise LookupNetException(word, e,geturl())
-    return result_from_html(html)
+    return html
 
 def quote_item(word):
     safe_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST0123456789-_.~"
@@ -80,25 +98,19 @@ def result_from_html(s):
 
     return keyword.encode('utf8'), sound.encode('utf8'), means.encode('utf8')
 
-def lookup_from_db(db, word):
-    word = word.lower()
-    table_name = get_table_name(word)
-    sql = 'SELECT keyword, sound, mean FROM %s where word=?' % table_name
-    result = db.execute(sql, (word,)).fetchone()
-    if result:
-        return tuple(i.encode('utf-8') for i in result)
-
-def save_into_db(db, result):
+def save_into_db(result):
     word, sound, mean = [i.decode('utf-8') for i in result]
     if not mean:
         return
     word = word.lower()
     table_name = get_table_name(word)
     sql = 'SELECT 1 FROM %s WHERE word=?' % table_name
-    if db.execute(sql, (word, )).fetchone():
+    db = get_db()
+    cursor = db.cursor()
+    if cursor.execute(sql, (word, )).fetchone():
         return
     sql = 'INSERT INTO %s (word, keyword, sound, mean) VALUES (?, ?, ?, ?)'
-    db.execute(sql % table_name, (word.lower(), word, sound, mean))
+    cursor.execute(sql % table_name, (word.lower(), word, sound, mean))
     db.commit()
 
 def get_table_name(word):
@@ -112,21 +124,9 @@ def to_txt(result):
     template = open(TEMPLATE_TXT).read()
     return template.format(*result)
 
+
 class LookupNetException(Exception):
     def __init__(self, word, url):
         self.word = wor
         self.message = 'Lookup word "%s: faild!' % word
         self.url = url
-
-def main():
-    from sys import argv, stdin
-    argc = len(argv)
-    word = stdin.read() if argc == 1 else argv[1]
-    type_ = 'txt' if argc < 3 else argv[2]
-    output = globals().get('to_%s' % type_)
-    result = lookup(word)
-    print output(result)
-
-if __name__ == '__main__':
-    main()
-

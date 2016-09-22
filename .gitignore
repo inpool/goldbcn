@@ -1,2 +1,5 @@
 *.py[co]
 db
+.kateproject
+.kateproject.d
+.directory
