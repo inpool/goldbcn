@@ -9,7 +9,7 @@ GoldenDict的英-中查询程序，自动联网查询单词并缓存到本地。
 ## 安装
 
 1. cd
-2. git clone https://github.com/inpool/goldendict-dbcn.git
+2. git clone https://github.com/inpool/goldbcn.git
 3. cd goldendict-dbcn
 4. ./bin/init-db
 
