@@ -3,11 +3,8 @@
 
 import os
 
-f = __file__
-while os.path.islink(f):
-    f = os.readlink(f)
-DIR_PATH = os.path.dirname(f) 
-DB_PATH = os.path.join(os.environ['HOME'], '.goldendict', 'dbcn', 'dict.db')
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+DB_PATH = os.path.expanduser('~/.goldendict/dbcn/dict.db')
 TEMPLATE_TXT = os.path.join(DIR_PATH, '../res/template.txt')
 
 def lookup(word):
