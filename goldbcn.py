@@ -1,22 +1,14 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals
 import os
 import urllib2
-import sqlite3
+import zlib
+import dbm  # @UnresolvedImport
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-DB_PATH = os.path.expanduser('~/.goldendict/dbcn/dict.db')
+DB_PATH = os.path.expanduser('~/.goldendict/dbcn/dict')
 TEMPLATE_TXT = os.path.join(DIR_PATH, 'res/template.txt')
-
-
-def get_db():
-    if hasattr(get_db, 'db'):
-        return get_db.db
-
-    db = sqlite3.connect(DB_PATH)  # @UndefinedVariable
-
-    get_db.db = db
-    return db
 
 
 def lookup(word):
@@ -32,7 +24,8 @@ def lookup(word):
     if result:
         return result
     result = lookup_from_net(word)
-    save_into_db(result)
+    if result is not None:
+        save_into_db(result)
     return result
 
 
@@ -45,14 +38,16 @@ def lookup_from_net(word):
 
 
 def lookup_from_db(word):
-    db = get_db()
-    cursor = db.cursor()
+    flag = 'r' if os.path.exists(DB_PATH) else 'c'
+    db = dbm.open(DB_PATH, flag)
     word = word.lower()
-    table_name = get_table_name(word)
-    sql = 'SELECT keyword, sound, mean FROM %s where word=?' % table_name
-    result = cursor.execute(sql, (word,)).fetchone()
-    if result:
-        return tuple(i.encode('utf-8') for i in result)
+    if word in db:
+        result = zlib.decompress(db[word]).decode('utf-8').split('\n', 2)
+    else:
+        result = None
+
+    db.close()
+    return result
 
 
 def xml_from_net(word, lookup_url=None):
@@ -71,7 +66,7 @@ def xml_from_net(word, lookup_url=None):
 def quote_item(word):
     safe_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST0123456789-_.~"
     if isinstance(word, unicode):
-        word = word.encode('utf8')
+        word = word.encode('utf-8')
 
     def quote_char(char):
         if char not in safe_chars:
@@ -89,44 +84,35 @@ def result_from_xml(s):
         means_els = et.findall(web_path)
         if not means_els:
             return
-    means = '\n'.join(e.text.strip().encode('utf-8') for e in means_els)
-    keyword = et.find('./return-phrase').text.strip().encode('utf-8')
+    means = '\n'.join(e.text.strip() for e in means_els)
+    keyword = et.find('./return-phrase').text.strip()
     uk_sound = et.find('./uk-phonetic-symbol')
     us_sound = et.find('./us-phonetic-symbol')
     sounds = []
     if uk_sound is not None:
-        sounds.append('英 [%s] ' % uk_sound.text.strip().encode('utf-8'))
+        sounds.append('英 [%s] ' % uk_sound.text.strip())
     if us_sound is not None:
-        sounds.append('美 [%s] ' % us_sound.text.strip().encode('utf-8'))
+        sounds.append('美 [%s] ' % us_sound.text.strip())
     sound = ''.join(sounds)
     return keyword, sound, means
 
 
 def save_into_db(result):
-    word, sound, mean = [i.decode('utf-8') for i in result]
+    word, sound, mean = result  # @UnusedVariable
     if not mean:
         return
-    word = word.lower()
-    table_name = get_table_name(word)
-    sql = 'SELECT 1 FROM %s WHERE word=?' % table_name
-    db = get_db()
-    cursor = db.cursor()
-    if cursor.execute(sql, (word, )).fetchone():
-        return
-    sql = 'INSERT INTO %s (word, keyword, sound, mean) VALUES (?, ?, ?, ?)'
-    cursor.execute(sql % table_name, (word.lower(), word, sound, mean))
-    db.commit()
-
-
-def get_table_name(word):
-    word = word.lower()
-    return 'word_%s' % (word[0] + word[-1])
+    key = word.lower().encode('utf-8')
+    val = zlib.compress('\n'.join(result).encode('utf-8'))
+    db = dbm.open(DB_PATH, 'c')
+    db[key] = val
+    db.close()
 
 
 def to_txt(result):
     ERROR_MSG = '单词未找到！'
     if not result:
         return ERROR_MSG
+    result = [i.encode('utf-8') for i in result]
     template = open(TEMPLATE_TXT).read()
     return template.format(*result)
 
