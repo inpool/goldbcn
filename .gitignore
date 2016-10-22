@@ -1,4 +1,6 @@
 *.py[co]
+db
 .directory
-.kateproject
-.kateproject.d
+.project
+.pydevproject
+.settings

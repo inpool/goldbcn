@@ -1,0 +1,18 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8 -*-
+
+from sys import path, argv, stdin
+from os.path import dirname, realpath
+
+if __name__ == '__main__':
+
+    path.insert(0, dirname(dirname(realpath(__file__))))
+
+    import goldbcn
+
+    argc = len(argv)
+    word = stdin.read() if argc == 1 else argv[1]
+    type_ = 'to_%s' % ('txt' if argc < 3 else argv[2])
+    output = getattr(goldbcn, type_, goldbcn.to_txt)
+    result = goldbcn.lookup(word)
+    print output(result)
