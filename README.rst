@@ -17,8 +17,11 @@ GoldenDict的英-中查询程序，自动联网查询单词并缓存到本地。
 2. 勾选启用复选框
 3. 类型： 纯文本
 4. 命令行 ::
+
       /path/to/goldbcn/bin/lookup
+      
    若使用virtualenv搭建的虚拟环境，则将命令行设置为 ::
+
       /path/to/your/virtualenv/bin/python2 /path/to/goldbcn/bin/lookup
 
 现在，就可以使用该程序进行查词了。
