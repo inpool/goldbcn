@@ -126,7 +126,7 @@ def save_into_db(result):
 
 
 def to_txt(result):
-    ERROR_MSG = '单词未找到！'
+    ERROR_MSG = '单词未找到！'.encode('utf-8')
     if not result:
         return ERROR_MSG
     result = [i.encode('utf-8') for i in result]
