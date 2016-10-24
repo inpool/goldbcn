@@ -1,0 +1,40 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8 -*-
+
+import sqlite3
+from os.path import dirname, realpath, expanduser, exists
+from os import rename
+import sys
+from itertools import product
+from string import lowercase
+
+
+OLD_DB_PATH = expanduser('~/.goldendict/dbcn/dict.db')
+DB_PATH = expanduser('~/.goldendict/dbcn/dict.sqlite')
+
+
+def main(refetch=False):
+    from goldbcn import lookup_from_net, save_into_db
+    sqldb = sqlite3.connect(DB_PATH)  # @UndefinedVariable
+    for i in product(lowercase, lowercase):
+        s = ''.join(i)
+        cur = sqldb.execute('SELECT * FROM word_%s' % s)
+        for row in cur.fetchall():
+            if refetch:
+                result = lookup_from_net(row[1])
+                if result:
+                    save_into_db(result)
+            else:
+                save_into_db(row[1:])
+
+
+if __name__ == '__main__':
+    sys.path.insert(0, dirname(dirname(realpath(__file__))))
+
+    if exists(OLD_DB_PATH):
+        rename(OLD_DB_PATH, DB_PATH)
+    if len(sys.argv) > 1 and sys.argv[1] == '--refetch':
+        refetch = True
+    else:
+        refetch = False
+    main(refetch)

@@ -4,11 +4,29 @@ from __future__ import unicode_literals
 import os
 import urllib2
 import zlib
+import sys
 import dbm  # @UnresolvedImport
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DB_PATH = os.path.expanduser('~/.goldendict/dbcn/dict')
 TEMPLATE_TXT = os.path.join(DIR_PATH, 'res/template.txt')
+ERROR_REASON = {13: '权限不足',
+                22: '文件类型或格式错误'}
+
+
+def get_db(flag='r'):
+    try:
+        db = dbm.open(DB_PATH, flag)
+    except dbm.error as e:
+        ecode = e.args[0]
+        if ecode == 2:
+            db = dbm.open(DB_PATH, 'c')
+        else:
+            reason = ERROR_REASON.get(ecode, e.args[1])
+            error_message = '数据库打开失败，错误原因：%s' % reason
+            print ecode, error_message.encode('utf-8')
+            sys.exit(1)
+    return db
 
 
 def lookup(word):
@@ -38,8 +56,7 @@ def lookup_from_net(word):
 
 
 def lookup_from_db(word):
-    flag = 'r' if os.path.exists(DB_PATH) else 'c'
-    db = dbm.open(DB_PATH, flag)
+    db = get_db()
     word = word.lower()
     if word in db:
         result = zlib.decompress(db[word]).decode('utf-8').split('\n', 2)
@@ -103,7 +120,7 @@ def save_into_db(result):
         return
     key = word.lower().encode('utf-8')
     val = zlib.compress('\n'.join(result).encode('utf-8'))
-    db = dbm.open(DB_PATH, 'c')
+    db = get_db('w')
     db[key] = val
     db.close()
 
