@@ -1,30 +1,49 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 import os
-import urllib2
 import zlib
 import sys
+from importlib import import_module
 import dbm  # @UnresolvedImport
+
+PY2 = sys.version_info.major == 2
+PY3 = sys.version_info.major == 3
+
+if PY2:
+    request = import_module('urllib2')
+    dbmerror = dbm.error
+else:
+    request = import_module('urllib.request')
+    dbmerror = import_module('_dbm').error
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DB_PATH = os.path.expanduser('~/.goldendict/dbcn/dict')
 TEMPLATE_TXT = os.path.join(DIR_PATH, 'res/template.txt')
-ERROR_REASON = {13: '权限不足',
+ERROR_REASON = {13: '权限不足，请确定您有适当的读取或写入权限',
                 22: '文件类型或格式错误'}
 
 
 def get_db(flag='r'):
+    error_fmt = '数据库打开失败： %s！'
     try:
         db = dbm.open(DB_PATH, flag)
-    except dbm.error as e:
-        ecode = e.args[0]
-        if ecode == 2:
+    except:
+        try:
             db = dbm.open(DB_PATH, 'c')
-        else:
-            reason = ERROR_REASON.get(ecode, e.args[1])
-            error_message = '数据库打开失败，错误原因：%s' % reason
-            print ecode, error_message.encode('utf-8')
+        except dbmerror as e:
+            eno = e.args[0]
+            estr = e.args[1]
+            errmsg = error_fmt % ERROR_REASON.get(eno, estr)
+            if PY2:
+                errmsg = errmsg.encode('utf-8')
+            print(errmsg, file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            errmsg = error_fmt % e.args[0]
+            if PY2:
+                errmsg = errmsg.encode('utf-8')
+            print(errmsg, file=sys.stderr)
             sys.exit(1)
     return db
 
@@ -68,28 +87,18 @@ def lookup_from_db(word):
 
 
 def xml_from_net(word, lookup_url=None):
-    word = quote_item(word)
+    word = request.quote(word)
     if lookup_url is None:
         lookup_url = ('http://dict.youdao.com/fsearch?q=%s&doctype=xml'
                       '&xmlVersion=3.2&le=eng&pos=-1')
     lookup_url = lookup_url % word
     try:
-        xml = urllib2.urlopen(lookup_url).read()
-    except urllib2.HTTPError as e:
+        req = request.urlopen(lookup_url)
+    except request.HTTPError as e:
         raise LookupNetException(word, e, lookup_url)
+    xml = req.read()
+    req.close()
     return xml
-
-
-def quote_item(word):
-    safe_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRST0123456789-_.~"
-    if isinstance(word, unicode):
-        word = word.encode('utf-8')
-
-    def quote_char(char):
-        if char not in safe_chars:
-            char = '%%%X' % ord(char)
-        return char
-    return ''.join(map(quote_char, word))
 
 
 def result_from_xml(s):
@@ -126,11 +135,12 @@ def save_into_db(result):
 
 
 def to_txt(result):
-    ERROR_MSG = '单词未找到！'.encode('utf-8')
+    ERROR_MSG = '单词未找到！'
     if not result:
         return ERROR_MSG
-    result = [i.encode('utf-8') for i in result]
-    template = open(TEMPLATE_TXT).read()
+    result = [i for i in result]
+    template = open(TEMPLATE_TXT, 'rb').read()
+    template = template.decode('utf-8')
     return template.format(*result)
 
 

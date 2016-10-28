@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import sqlite3
@@ -6,7 +6,7 @@ from os.path import dirname, realpath, expanduser, exists
 from os import rename
 import sys
 from itertools import product
-from string import lowercase
+from string import ascii_lowercase as lowercase
 
 
 OLD_DB_PATH = expanduser('~/.goldendict/dbcn/dict.db')

@@ -14,5 +14,7 @@ if __name__ == '__main__':
     word = stdin.read() if argc == 1 else argv[1]
     type_ = 'to_%s' % ('txt' if argc < 3 else argv[2])
     output = getattr(goldbcn, type_, goldbcn.to_txt)
-    result = goldbcn.lookup(word)
-    print output(result)
+    result = output(goldbcn.lookup(word))
+    if goldbcn.PY2:
+        result = result.encode('utf-8')
+    print(result)
