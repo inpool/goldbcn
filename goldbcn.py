@@ -25,6 +25,8 @@ ERROR_REASON = {13: '权限不足，请确定您有适当的读取或写入权�
 
 
 def get_db(flag='r'):
+    if not os.path.exists(DB_PATH):
+        os.makedirs(DB_PATH)
     error_fmt = '数据库打开失败： %s！'
     try:
         db = dbm.open(DB_PATH, flag)
